@@ -1,0 +1,478 @@
+<!DOCTYPE html>
+<html lang="gu">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>સત્સંગ દીક્ષા ઘન (3D Rolling Dice)</title>
+    
+    <!-- Load Tailwind CSS for utility classes -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Load Confetti Library for Pop-up Effect -->
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.3/dist/confetti.browser.min.js"></script>
+    
+    <!-- Google Font for Gujarati: Noto Sans Gujarati (a clear, modern Gujarati font) -->
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Gujarati:wght@400;700;900&display=swap" rel="stylesheet">
+
+    <!-- Custom CSS for 3D Cube, Animation, Background, and Modal -->
+    <style>
+        /* 1. Background Setup and Global Font */
+        body {
+            /* Using the uploaded image for the background */
+            background-image: url('bg.png');
+            background-size: cover;
+            background-position: center;
+            background-attachment: fixed;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: 'Noto Sans Gujarati', sans-serif;
+            margin: 0;
+            padding: 20px;
+            flex-direction: column; /* Ensure content stacks nicely in the center */
+        }
+        .gu-font {
+            font-family: 'Noto Sans Gujarati', sans-serif;
+        }
+        
+        /* Global selection style */
+        ::selection {
+            background-color: #f97316; /* Orange-500 for selection */
+            color: #ffffff;
+        }
+
+        /* 2. Main Container Enhancement (REMOVED .main-card styling as per user request) */
+        
+        /* Heading Glow Effect */
+        .heading-glow {
+            color: #4f46e5; /* Indigo-600 */
+            text-shadow: 0 0 10px rgba(129, 140, 248, 0.8), 0 0 20px rgba(129, 140, 248, 0.5);
+            transition: color 0.3s;
+            /* Added white background for readability over complex background image */
+            padding: 0.5rem 1rem;
+            border-radius: 0.75rem;
+            background-color: rgba(255, 255, 255, 0.85); 
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+            max-width: fit-content;
+            margin-left: auto;
+            margin-right: auto;
+        }
+        
+        /* Text under the heading */
+        .info-text {
+             background-color: rgba(255, 255, 255, 0.7);
+             border-radius: 0.5rem;
+             padding: 0.25rem 0.5rem;
+             display: inline-block;
+             margin-bottom: 2rem;
+             box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        /* 3D Container and Dice Setup */
+        .dice-container {
+            perspective: 1200px; 
+            width: 280px; 
+            height: 280px;
+        }
+
+        .cube {
+            width: 100%;
+            height: 100%;
+            position: relative;
+            transform-style: preserve-3d;
+            /* UPDATED: Increased transition time to 7s */
+            transition: transform 7s cubic-bezier(0.19, 1, 0.22, 1);
+        }
+
+        .face {
+            position: absolute;
+            width: 280px;
+            height: 280px;
+            border: 2px solid rgba(0, 0, 0, 0.15);
+            /* Richer gradient for a glossy look */
+            background: linear-gradient(135deg, #fefefe 0%, #e0e7ff 100%); 
+            color: #1a1a1a;
+            font-size: 1.2rem;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            line-height: 1.5;
+            padding: 1.5rem;
+            border-radius: 15px;
+            /* Enhanced Shadow for 3D depth */
+            box-shadow: 0 15px 35px rgba(0,0,0,0.3), inset 0 0 15px rgba(255, 255, 255, 0.9);
+            transition: opacity 0.3s;
+        }
+        
+        /* Apply subtle text color overrides for face legibility */
+        .face div {
+            color: #374151; /* Dark gray for maximum readability */
+            text-shadow: 0 1px 2px rgba(255, 255, 255, 0.5);
+        }
+
+
+        /* 3D Positioning of Faces: translateZ is half the cube size (140px) */
+        .face { transform: translateZ(140px); } 
+        .front  { transform: rotateY(  0deg) translateZ(140px); }
+        .back   { transform: rotateX(  0deg) rotateY(180deg) translateZ(140px); }
+        .right  { transform: rotateY( 90deg) translateZ(140px); }
+        .left   { transform: rotateY(-90deg) translateZ(140px); }
+        .top    { transform: rotateX( 90deg) translateZ(140px); }
+        .bottom { transform: rotateX(-90deg) translateZ(140px); }
+        
+        /* 3. Custom Button Styling - Vibrant Pink/Red */
+        #rollButton {
+            transition: all 0.3s ease-in-out;
+            background-image: linear-gradient(to right, #f87171 0%, #ec4899 100%); /* Red-400 to Pink-500 */
+            border: none;
+        }
+        #rollButton:hover {
+            box-shadow: 0 10px 20px rgba(236, 72, 153, 0.6);
+            transform: translateY(-5px) scale(1.05); /* Slightly larger pop on hover */
+        }
+        #rollButton:active {
+            transform: translateY(0);
+            box-shadow: 0 5px 10px rgba(236, 72, 153, 0.4);
+        }
+
+        /* --- MODAL ANIMATION FIX --- */
+        
+        /* Modal Overlay (Hidden by Default) */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.6); /* Slightly darker overlay */
+            display: none; /* Controlled by JS */
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            /* Add transition for smooth fade-in */
+            opacity: 0; 
+            transition: opacity 0.3s ease-out;
+        }
+        
+        /* Modal Content Styling */
+        .modal-content {
+            background: linear-gradient(to bottom right, #ffffff, #fef2f2); /* Light pink gradient for modal */
+            border: 4px solid #f97316; /* Orange border for pop */
+            padding: 2.5rem;
+            border-radius: 1.5rem;
+            max-width: 90%;
+            text-align: center;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.4);
+            
+            /* Initial state for smooth scale-up animation */
+            transform: scale(0.8);
+            transition: transform 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94); /* Smooth cubic animation */
+        }
+
+        /* State when modal is visible (controlled by JS adding 'is-visible' class) */
+        .modal-overlay.is-visible {
+            opacity: 1;
+        }
+        .modal-overlay.is-visible .modal-content {
+            transform: scale(1);
+        }
+
+        /* Colorful Result Display (Text Gradient for Pop-up) */
+        .colorful-text {
+            background-image: linear-gradient(
+                45deg,
+                #FFD700, /* Gold */
+                #FF69B4, /* Hot Pink */
+                #8A2BE2, /* Blue Violet */
+                #00FFFF  /* Aqua */
+            );
+            background-clip: text;
+            -webkit-background-clip: text;
+            color: transparent;
+            font-weight: 900;
+            font-size: 2rem; /* Increased size for impact */
+            text-shadow: 0 0 20px rgba(255, 255, 255, 0.8); /* Stronger glow effect */
+            line-height: 1.4;
+            display: block;
+        }
+        
+        /* Status text below the button */
+        #currentTopic {
+            min-height: 4rem;
+            color: #1d4ed8; /* Blue-700 for status */
+        }
+    </style>
+</head>
+<body class="gu-font">
+
+    <!-- Content is now a separate floating entity -->
+    <div class="max-w-md w-full text-center p-4">
+
+
+        <!-- Dice Display Area -->
+        <div class="flex justify-center items-center mb-6">
+            <div class="dice-container">
+                <div id="cube" class="cube">
+                    <!-- Face 1: ગુરુની અનિવાર્યતા -->
+                    <div class="face front" data-value="0"><div>ગુરુની અનિવાર્યતા</div></div>
+                    
+                    <!-- Face 2: ભગવાનમાં શ્રદ્ધા અને બળ -->
+                    <div class="face back" data-value="1"><div>ભગવાનમાં શ્રદ્ધા અને ભગવાનનું બળ</div></div>
+                    
+                    <!-- Face 3: અક્ષરપુરુષોત્તમ સિદ્ધાંત -->
+                    <div class="face right" data-value="2"><div>અક્ષરપુરુષોત્તમ સિદ્ધાંત પ્રવર્તન</div></div>
+                    
+                    <!-- Face 4: સત્સંગ ભક્તિનો હેતુ અને રીત -->
+                    <div class="face left" data-value="3"><div>સત્સંગ ભક્તિનો હેતુ અને રીત</div></div>
+                    
+                    <!-- Face 5: અક્ષરબ્રહ્મ ગુરુનો પ્રસંગ -->
+                    <div class="face top" data-value="4"><div>અક્ષરબ્રહ્મ ગુરુનો પ્રસંગ</div></div>
+                    
+                    <!-- Face 6: દીક્ષા મહિમા અને ફળ શ્રુતિ -->
+                    <div class="face bottom" data-value="5"><div>સત્સંગ દીક્ષા મહિમા અને ફળ શ્રુતિ</div></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="text-center mt-8">
+            
+            
+            <!-- Roll Button -->
+            <button id="rollButton" class="mt-4 px-8 py-3 text-white text-xl font-semibold rounded-full shadow-xl focus:outline-none focus:ring-4 focus:ring-pink-400 focus:ring-opacity-50 disabled:opacity-50 disabled:cursor-not-allowed">
+                Roll Dice
+            </button>
+        </div>
+        
+    </div>
+
+    <!-- Result Pop-up Modal Structure -->
+    <div id="result-modal" class="modal-overlay">
+        <div class="modal-content">
+            <h3 class="text-xl md:text-2xl font-bold text-gray-700 mb-4">આપનો વિષય:</h3>
+            
+            <!-- Result text inside the modal with colorful text gradient -->
+            <p id="modalTopicDisplay" class="colorful-text mt-4 mb-6">
+                <!-- Content set by JavaScript -->
+            </p>
+
+            <button onclick="closeModal()" class="mt-4 px-6 py-2 bg-purple-600 hover:bg-purple-700 text-white font-bold rounded-full shadow-md transition duration-200">
+                Close
+            </button>
+        </div>
+    </div>
+
+    <script>
+        // Use the global confetti function from the loaded library
+        const confetti = window.confetti;
+
+        const cube = document.getElementById('cube');
+        const currentTopicDisplay = document.getElementById('currentTopic');
+        const rollButton = document.getElementById('rollButton');
+        const resultModal = document.getElementById('result-modal');
+        const modalTopicDisplay = document.getElementById('modalTopicDisplay');
+
+        let isRolling = false; 
+        
+        // Define rotations for each face (index 0 to 5)
+        const rotationMap = [
+            // Face 1 (Front: index 0)
+            { rotateX: 360 * 2, rotateY: 360 * 2, faceText: "ગુરુની અનિવાર્યતા" },
+            // Face 2 (Back: index 1)
+            { rotateX: 360 * 2, rotateY: 360 * 2 + 180, faceText: "ભગવાનમાં શ્રદ્ધા અને ભગવાનનું બળ" },
+            // Face 3 (Right: index 2)
+            { rotateX: 360 * 2, rotateY: 360 * 2 - 90, faceText: "અક્ષરપુરુષોત્તમ સિદ્ધાંત પ્રવર્તન" },
+            // Face 4 (Left: index 3)
+            { rotateX: 360 * 2, rotateY: 360 * 2 + 90, faceText: "સત્સંગ ભક્તિનો હેતુ અને રીત" },
+            // Face 5 (Top: index 4)
+            { rotateX: 360 * 2 - 90, rotateY: 360 * 2, faceText: "અક્ષરબ્રહ્મ ગુરુનો પ્રસંગ" },
+            // Face 6 (Bottom: index 5)
+            { rotateX: 360 * 2 + 90, rotateY: 360 * 2, faceText: "સત્સંગ દીક્ષા મહિમા અને ફળ શ્રુતિ" },
+        ];
+
+        // Unique Roll Logic using local storage for state persistence
+        let availableFaces = []; // Stores indices of faces not yet rolled in the current cycle
+
+        /**
+         * Loads the unique roll state from localStorage on startup.
+         */
+        function loadUniqueRollState() {
+            const savedFaces = localStorage.getItem('dikshaDiceAvailableFaces');
+            if (savedFaces) {
+                availableFaces = JSON.parse(savedFaces);
+            } else {
+                // Initialize for the first time
+                resetUniqueRollState(false);
+            }
+        }
+        
+        /**
+         * Resets and shuffles the available faces for a new cycle.
+         * @param {boolean} showAlert - Whether to show a brief reset message.
+         */
+        function resetUniqueRollState(showAlert = true) {
+            let allFaces = [0, 1, 2, 3, 4, 5];
+            // Simple Fisher-Yates shuffle
+            for (let i = allFaces.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [allFaces[i], allFaces[j]] = [allFaces[j], allFaces[i]];
+            }
+            availableFaces = allFaces;
+            localStorage.setItem('dikshaDiceAvailableFaces', JSON.stringify(availableFaces));
+
+            if (showAlert) {
+                //currentTopicDisplay.textContent = "નવું ચક્ર શરૂ થયું! રોલ કરો.";
+                setTimeout(() => {
+                   // currentTopicDisplay.textContent = "રોલ કરવા તૈયાર!";
+                }, 1000);
+            }
+        }
+        
+        /**
+         * Selects the next face index (0-5) ensuring it is unique within the current cycle.
+         * @returns {number} The index of the next face to display.
+         */
+        function getNextUniqueFace() {
+            if (availableFaces.length === 0) {
+                resetUniqueRollState(true);
+            }
+
+            // Pop the next unique face index and save the updated state
+            const nextFaceIndex = availableFaces.pop();
+            localStorage.setItem('dikshaDiceAvailableFaces', JSON.stringify(availableFaces));
+            return nextFaceIndex;
+        }
+
+        // --- UI/Interaction Functions ---
+
+        /**
+         * Closes the result modal.
+         */
+        function closeModal() {
+            // Use CSS class to trigger fade out and scale down animation
+            resultModal.classList.remove('is-visible');
+            
+            // Wait for the transition to finish before hiding the element completely
+            setTimeout(() => {
+                resultModal.style.display = 'none';
+            }, 900); // Match this timeout to the CSS transition duration (0.3s)
+        }
+        
+        /**
+         * Triggers the confetti effect for celebration.
+         */
+        function launchConfetti() {
+            const defaults = {
+                spread: 360,
+                ticks: 80,
+                gravity: 0.5,
+                decay: 0.94,
+                startVelocity: 30,
+                shapes: ['square', 'circle', 'star'],
+                colors: ['#ffc700', '#ff006e', '#8A2BE2', '#3a86ff', '#48bfe3', '#ccff33']
+            };
+
+            // Launch confetti from the center of the viewport
+            confetti({
+                ...defaults,
+                particleCount: 150,
+                origin: { x: 0.5, y: 0.5 }
+            });
+            
+            // Side bursts for extra effect
+            confetti({
+                ...defaults,
+                particleCount: 80,
+                origin: { x: 0.2, y: 0.8 },
+                angle: 60
+            });
+            
+            confetti({
+                ...defaults,
+                particleCount: 80,
+                origin: { x: 0.8, y: 0.8 },
+                angle: 120
+            });
+        }
+        
+        /**
+         * Shows the result in the popup modal and launches confetti.
+         * @param {string} topic - The selected topic text.
+         */
+        function showResultModal(topic) {
+            modalTopicDisplay.textContent = topic;
+            
+            // Set display to flex immediately to start fade/scale transition
+            resultModal.style.display = 'flex'; 
+            
+            // A short delay is needed for the browser to recognize the display change 
+            // before applying the 'is-visible' class and starting the transition.
+            setTimeout(() => {
+                resultModal.classList.add('is-visible'); // Trigger the smooth animation
+            }, 10); 
+            
+            launchConfetti(); // Launch confetti for the celebration
+        }
+
+        /**
+         * Initiates the 3D dice roll animation.
+         */
+        function rollDice() {
+            if (isRolling) return; 
+            closeModal(); // Ensure modal is closed before roll starts
+
+            isRolling = true;
+            rollButton.disabled = true;
+            //rollButton.textContent = "ફેરવાઈ રહ્યો છે...";
+            //currentTopicDisplay.textContent = "ઘન ગતિમાં છે...";
+            
+            const nextFaceIndex = getNextUniqueFace();
+            const rotation = rotationMap[nextFaceIndex];
+
+            // Apply the complex rotation to the cube to make it spin and land on the correct face
+            cube.style.transform = `rotateX(${rotation.rotateX}deg) rotateY(${rotation.rotateY}deg)`;
+
+            // Wait for the transition to finish (7s + buffer)
+            // UPDATED: Increased timeout to 7100ms
+            setTimeout(() => {
+                // 1. Show the result in the modal
+                showResultModal(rotation.faceText);
+
+                // 2. Reset the transition after landing to prepare for the next roll
+                cube.style.transition = 'none';
+                
+                // Reset rotation values to a simpler state (0-359 degrees) while keeping visual position
+                const newRotateX = rotation.rotateX % 360;
+                const newRotateY = rotation.rotateY % 360;
+                cube.style.transform = `rotateX(${newRotateX}deg) rotateY(${newRotateY}deg)`;
+                
+                // Re-enable the transition for the next roll
+                setTimeout(() => {
+                    // UPDATED: Reset transition property to 7s
+                    cube.style.transition = 'transform 7s cubic-bezier(0.19, 1, 0.22, 1)';
+                    
+                    isRolling = false; 
+                    rollButton.disabled = false;
+                    rollButton.textContent = "Roll Dice";
+                   // currentTopicDisplay.textContent = "રોલ પૂર્ણ થયો!";
+                }, 50); 
+            }, 7100);
+        }
+
+        // Event listeners and Initialization
+        window.onload = function() {
+            loadUniqueRollState(); // Load the state when the page loads
+            rollButton.addEventListener('click', rollDice);
+            
+            // Allow clicking anywhere on the overlay to close the modal
+            resultModal.addEventListener('click', (e) => {
+                if (e.target === resultModal) {
+                    closeModal();
+                }
+            });
+        };
+    </script>
+</body>
+</html>
